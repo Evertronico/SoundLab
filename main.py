@@ -1,9 +1,10 @@
 """
-SoundLab — versão 3 (Aula 03).
+SoundLab — versão 5 (Aula 05).
 
-O SoundLab ganhou playlist. O acervo é o que existe; A 
-playlist é a ordem em que se quer ouvir. São duas estruturas
-com propósitos diferentess
+A Playlist ganhou um segundo ponteiro por nó: `anterior`. O contrato
+público herdado da Aula 04 não mudou uma vírgula; o que se soma são três
+operações novas de reprodução, que só fazem sentido porque agora dá para
+voltar uma faixa sem recomeçar do início.
 
     python3 main.py
 """
@@ -14,12 +15,15 @@ from soundlab.playlist import Playlist
 
 OPCOES = """
 +------------------- SoundLab -------------------+
- 1  Listar acervo       4 Remover do acervo
- 2  Cadastrar faixa     5 Ver playlist
- 3  Buscar por titulo   6 Acrescentar à playlist
-                        7 Inserir na playlist (posicao)
- 0  Sair                8 Tirar da playlist (posicao)
+ 1  Listar acervo           6  Acrescentar a playlist
+ 2  Cadastrar faixa         7  Inserir na playlist (posicao)
+ 3  Buscar por titulo       8  Tirar da playlist (posicao)
+ 4  Remover do acervo       9  Comecar reproducao
+ 5  Ver playlist           10  Proxima faixa (>>)
+                           11  Faixa anterior (<<)
+ 0  Sair
 +------------------------------------------------+"""
+
 
 def carregar_acervo():
     acervo = Acervo()
@@ -33,7 +37,6 @@ def carregar_acervo():
 def listar(acervo):
     if len(acervo) == 0:
         print("  acervo vazio")
-        return
     for posicao, faixa in enumerate(acervo):
         print(f"  [{posicao}] {faixa}")
 
@@ -41,8 +44,7 @@ def listar(acervo):
 def cadastrar(acervo):
     titulo = input("  titulo...: ").strip()
     artista = input("  artista..: ").strip()
-    duracao = int(input("  duracao (segundos): "))
-    acervo.adicionar(Faixa(titulo, artista, duracao))
+    acervo.adicionar(Faixa(titulo, artista, int(input("  duracao (s): "))))
     print(f"  cadastrada. o acervo tem {len(acervo)} faixas.")
 
 
@@ -59,30 +61,45 @@ def remover(acervo):
 def ver_playlist(playlist):
     print(f"  playlist '{playlist.nome}' ({len(playlist)} faixas)")
     for posicao, faixa in enumerate(playlist):
-        print(f"    {posicao} . {faixa}")
+        print(f"    {posicao}. {faixa}")
 
 
 def acrescentar(acervo, playlist):
-    faixa = acervo.buscar(input("   titulo: ").strip())
+    faixa = acervo.buscar(input("  titulo: ").strip())
     if faixa is None:
-        print("     não está no acervo")
+        print("  nao esta no acervo")
         return
-    playlist.adicionar(faixa)
-    print(f"   '{faixa.titulo}' entrou no fim da playlist")
+    playlist.adicionar(faixa)          # no fim: custo constante
+    print(f"  '{faixa.titulo}' entrou no fim da playlist")
 
 
 def inserir(acervo, playlist):
-    faixa = acervo.buscar(input("   titulo: ").strip())
+    faixa = acervo.buscar(input("  titulo: ").strip())
     if faixa is None:
-        print("     não está no acervo")
+        print("  nao esta no acervo")
         return
-    posicao = int(input(f"  posição (0 a {len(playlist)}): "))
+    posicao = int(input(f"  posicao (0 a {len(playlist)}): "))
     playlist.inserir_em(posicao, faixa)
-    print(f"    {len(playlist) - posicao - 1 } faixas deslocadas")
+    print(f"  '{faixa.titulo}' inserida na posicao {posicao}")
+
 
 def tirar(playlist):
-    posicao = int(input(f"  posição (0 a {len(playlist)}): "))
-    print(f"    saiu: {playlist.remover_em(posicao)}")
+    posicao = int(input(f"  posicao (0 a {len(playlist) - 1}): "))
+    print(f"  saiu: {playlist.remover_em(posicao)}")
+
+
+def comecar(playlist):
+    print(f"  tocando: {playlist.comecar_reproducao()}")
+
+
+def proxima(playlist):
+    print(f"  tocando: {playlist.proxima()}")
+
+
+def voltar(playlist):
+    # Custo O(1): o cursor anda pelo ponteiro `anterior` do proprio no.
+    print(f"  tocando: {playlist.anterior()}")
+
 
 def main():
     acervo = carregar_acervo()
@@ -93,7 +110,7 @@ def main():
         opcao = input(" opcao: ").strip()
         try:
             if opcao == "0":
-                print(" até a próxima.")
+                print(" ate a proxima.")
                 break
             elif opcao == "1": listar(acervo)
             elif opcao == "2": cadastrar(acervo)
@@ -103,9 +120,12 @@ def main():
             elif opcao == "6": acrescentar(acervo, playlist)
             elif opcao == "7": inserir(acervo, playlist)
             elif opcao == "8": tirar(playlist)
-            else: print("   opção inválida")
+            elif opcao == "9": comecar(playlist)
+            elif opcao == "10": proxima(playlist)
+            elif opcao == "11": voltar(playlist)
+            else: print("  opcao invalida")
         except (ValueError, IndexError) as erro:
-            print(f"    {erro}")
+            print(f"  {erro}")
 
 
 if __name__ == "__main__":
