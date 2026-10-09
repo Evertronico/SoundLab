@@ -1,6 +1,6 @@
 """
 SoundLab — versão 6 (Aula 06).
-
+Jhames
 O SoundLab ganhou histórico de reprodução. É uma estrutura nova, não uma
 extensão da Playlist: o cursor `anterior`/`proxima` da Aula 05 anda pela
 ORDEM da playlist; o histórico guarda a ORDEM REAL em que as faixas foram
