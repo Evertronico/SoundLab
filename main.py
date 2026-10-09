@@ -1,4 +1,6 @@
 """
+Paulo Victor Lopes - 4º Periodo | SoundLab - 08-10-2026
+
 SoundLab — versão 6 (Aula 06).
 
 O SoundLab ganhou histórico de reprodução. É uma estrutura nova, não uma
