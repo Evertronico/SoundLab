@@ -1,21 +1,28 @@
 """
-Paulo Victor Lopes - 4º Periodo | SoundLab - 08-10-2026
+Projeto SoundLab - Estruturas de Dados 
+Paulo Victor Lopes - 4º Periodo
 
-SoundLab — versão 6 (Aula 06).
-
-O SoundLab ganhou histórico de reprodução. É uma estrutura nova, não uma
-extensão da Playlist: o cursor `anterior`/`proxima` da Aula 05 anda pela
-ORDEM da playlist; o histórico guarda a ORDEM REAL em que as faixas foram
-tocadas, mesmo quando uma faixa é tocada direto do acervo, fora de
-qualquer posição da playlist. Desfazer reprodução é desempilhar.
-
-    python3 main.py
+Entrega 1 - Perguntas
+# Pergunta: por que nao usar a Pilha ao contrario?
+# Resposta: se A, B e C entram numa pilha, saem C, B e A (LIFO). Na fila,
+# entram A, B e C e saem A, B e C (FIFO). A pilha trabalha pelo topo; a fila
+# tem duas pontas, adiciona no _tras e remove na _frente. Portanto, fila não é uma pilha lida
+# de tras para frente, é uma estrutura com regra de entrada e saida propria.
+#
+# Pergunta: O que quebraria no modo repetição se _tras não fosse religado corretamente ao desenfileirar o último elemento?
+# Resposta: _frente fica None, mas _tras continuaria apontando para o nó removido.
+# Na proxima insercao, o novo nó seria ligado a esse nó antigo, sem atualizar
+# _frente. A fila ficaria inconsistente: o tamanho indicaria que ha um elemento,
+# mas desenfileirar nao encontraria uma frente valida. No modo circular, isso
+# impede que a faixa removida seja religada corretamente ao fim e interrompe
+# a repeticao. Por isso desenfileirar limpa _tras quando a fila fica vazia.
 """
 
 from soundlab.acervo import Acervo
 from soundlab.faixa import Faixa
 from soundlab.pilha import Pilha
 from soundlab.playlist import Playlist
+from soundlab.fila import FilaExecucao, FilaCircular
 
 OPCOES = """
 +------------------- SoundLab -------------------+
@@ -27,6 +34,10 @@ OPCOES = """
  6  Acrescentar a playlist
                            12  Tocar faixa do acervo (historico)
                            13  Desfazer reproducao (historico)
+
+ 14  Adicionar faixa "a seguir"
+ 15  Tocar proxima da fila (>>|)
+ 16  Alternar modo repeticao
  0  Sair
 +------------------------------------------------+"""
 
@@ -37,6 +48,16 @@ def carregar_acervo():
     acervo.adicionar(Faixa("Construcao", "Chico Buarque", 382))
     acervo.adicionar(Faixa("Ponta de Areia", "Milton Nascimento", 194))
     acervo.adicionar(Faixa("Baiao", "Luiz Gonzaga", 168))
+    acervo.adicionar(Faixa("Evidências", "Chitãozinho & Xororó", 293))
+    acervo.adicionar(Faixa("Fio de Cabelo", "Chitãozinho & Xororó", 237))
+    acervo.adicionar(Faixa("Como É Grande o Meu Amor por Você", "Roberto Carlos", 230))
+    acervo.adicionar(Faixa("Detalhes", "Roberto Carlos", 303))
+    acervo.adicionar(Faixa("Asa Branca", "Luiz Gonzaga", 165))
+    acervo.adicionar(Faixa("Tocando em Frente", "Almir Sater", 268))
+    acervo.adicionar(Faixa("Romaria", "Renato Teixeira", 213))
+    acervo.adicionar(Faixa("O Leãozinho", "Caetano Veloso", 196))
+    acervo.adicionar(Faixa("Garota de Ipanema", "Tom Jobim", 191))
+    acervo.adicionar(Faixa("País Tropical", "Jorge Ben Jor", 207))
     return acervo
 
 
@@ -108,7 +129,6 @@ def anterior(playlist):
 
 def tocar_agora(acervo, historico):
     """Toca uma faixa direto do acervo, fora da ordem da playlist.
-
     Cada chamada empilha uma faixa nova: o topo do historico passa a
     ser "o que esta tocando agora".
     """
@@ -134,10 +154,47 @@ def desfazer_reproducao(historico):
         print(f"  voltando a tocar: {historico.topo()}")
 
 
+def enfileirar_faixa(acervo, fila):
+    """Coloca uma faixa do acervo no FIM da fila 'a seguir'."""
+    faixa = acervo.buscar(input("  titulo: ").strip())
+    if faixa is None:
+        print("  nao esta no acervo")
+        return
+    fila.enfileirar(faixa)
+    print(f"  '{faixa.titulo}' entrou na fila ({len(fila)} na fila)")
+
+
+def tocar_da_fila(fila):
+    """Toca a proxima faixa da fila.
+
+    Em modo repeticao (FilaCircular) a faixa tocada volta sozinha para o
+    fim, usa avancar().
+    """
+    if fila.vazia():
+        print("  fila vazia")
+        return
+    if isinstance(fila, FilaCircular):
+        print(f"  tocando: {fila.avancar()}  (repeticao ligada)")
+    else:
+        print(f"  tocando: {fila.desenfileirar()}  ({len(fila)} na fila)")
+
+
+def alternar_repeticao(fila):
+    """Troca entre fila comum e fila circular, preservando as faixas.
+    """
+    nova = FilaExecucao() if isinstance(fila, FilaCircular) else FilaCircular()
+    while not fila.vazia():
+        nova.enfileirar(fila.desenfileirar())
+    estado = "LIGADO" if isinstance(nova, FilaCircular) else "DESLIGADO"
+    print(f"  modo repeticao: {estado}")
+    return nova
+
+
 def main():
     acervo = carregar_acervo()
     playlist = Playlist("Favoritas")
     historico = Pilha()
+    fila = FilaExecucao()
 
     while True:
         print(OPCOES)
@@ -159,6 +216,9 @@ def main():
             elif opcao == "11": anterior(playlist)
             elif opcao == "12": tocar_agora(acervo, historico)
             elif opcao == "13": desfazer_reproducao(historico)
+            elif opcao == "14": enfileirar_faixa(acervo, fila)
+            elif opcao == "15": tocar_da_fila(fila)
+            elif opcao == "16": fila = alternar_repeticao(fila)
             else: print("  opcao invalida")
         except (ValueError, IndexError) as erro:
             print(f"  {erro}")
