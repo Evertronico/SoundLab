@@ -1,5 +1,5 @@
 """
-SoundLab — versão 6 (Aula 06).
+SoundLab — Semana 1: fila de execucao e modo repeticao.
 Jhames
 O SoundLab ganhou histórico de reprodução. É uma estrutura nova, não uma
 extensão da Playlist: o cursor `anterior`/`proxima` da Aula 05 anda pela
@@ -12,6 +12,7 @@ qualquer posição da playlist. Desfazer reprodução é desempilhar.
 
 from soundlab.acervo import Acervo
 from soundlab.faixa import Faixa
+from soundlab.fila import FilaCircular
 from soundlab.pilha import Pilha
 from soundlab.playlist import Playlist
 
@@ -25,6 +26,10 @@ OPCOES = """
  6  Acrescentar a playlist
                            12  Tocar faixa do acervo (historico)
                            13  Desfazer reproducao (historico)
+                           14  Adicionar a fila "a seguir"
+                           15  Tocar proxima da fila
+                           16  Ativar/desativar repeticao
+                           17  Ver fila "a seguir"
  0  Sair
 +------------------------------------------------+"""
 
@@ -132,10 +137,38 @@ def desfazer_reproducao(historico):
         print(f"  voltando a tocar: {historico.topo()}")
 
 
+def adicionar_a_fila(acervo, fila):
+    faixa = acervo.buscar(input("  titulo: ").strip())
+    if faixa is None:
+        print("  nao esta no acervo")
+        return
+    fila.enfileirar(faixa)
+    print(f"  '{faixa.titulo}' entrou na fila a seguir")
+
+
+def tocar_proxima_da_fila(fila, historico):
+    faixa = fila.desenfileirar()
+    faixa.tocar()
+    historico.empilhar(faixa)
+    print(f"  tocando da fila: {faixa}")
+
+
+def alternar_repeticao(fila):
+    fila.definir_repeticao(not fila.repeticao)
+    print(f"  repeticao {'ativada' if fila.repeticao else 'desativada'}")
+
+
+def ver_fila(fila):
+    print(f"  a seguir ({len(fila)} faixas) - repeticao "
+          f"{'ativada' if fila.repeticao else 'desativada'}")
+    listar(fila)
+
+
 def main():
     acervo = carregar_acervo()
     playlist = Playlist("Favoritas")
     historico = Pilha()
+    fila = FilaCircular()
 
     while True:
         print(OPCOES)
@@ -157,6 +190,10 @@ def main():
             elif opcao == "11": anterior(playlist)
             elif opcao == "12": tocar_agora(acervo, historico)
             elif opcao == "13": desfazer_reproducao(historico)
+            elif opcao == "14": adicionar_a_fila(acervo, fila)
+            elif opcao == "15": tocar_proxima_da_fila(fila, historico)
+            elif opcao == "16": alternar_repeticao(fila)
+            elif opcao == "17": ver_fila(fila)
             else: print("  opcao invalida")
         except (ValueError, IndexError) as erro:
             print(f"  {erro}")
