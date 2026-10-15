@@ -1,18 +1,51 @@
 """
-heron
-SoundLab — versão 6 (Aula 06).
-
-O SoundLab ganhou histórico de reprodução. É uma estrutura nova, não uma
-extensão da Playlist: o cursor `anterior`/`proxima` da Aula 05 anda pela
-ORDEM da playlist; o histórico guarda a ORDEM REAL em que as faixas foram
-tocadas, mesmo quando uma faixa é tocada direto do acervo, fora de
-qualquer posição da playlist. Desfazer reprodução é desempilhar.
-
-    python3 main.py
+Heron - 4o Periodo
+ 
+SoundLab - Semana 1 (Aula 07: Filas e Filas Circulares).
+ 
+Nessa semana adicionei a fila de execucao ("a seguir") e o modo repeticao.
+A fila ta no fila.py (modulo novo) e o main.py so chama os metodos dela.
+Nao mexi na Faixa, Acervo, Playlist nem Pilha.
+ 
+=============================================================================
+FIFO x LIFO (do meu jeito)
+=============================================================================
+LIFO (Pilha): o ultimo que entra e o primeiro que sai. So mexe no topo,
+tipo pilha de pratos: o ultimo que eu coloquei em cima e o primeiro que eu
+pego. No SoundLab usei pra desfazer reproducao, porque eu quero voltar pro
+que tocou por ultimo.
+ 
+FIFO (Fila): o primeiro que entra e o primeiro que sai. Entra no fim e sai
+no comeco, entao mexe nas duas pontas. Tipo fila de banco, quem chegou
+primeiro e atendido primeiro. No SoundLab usei pro "a seguir": a primeira
+musica que eu coloquei e a primeira que toca.
+ 
+=============================================================================
+Perguntas de Verificacao - Semana 1
+=============================================================================
+1. Por que a fila nao podia ser so a Pilha da Aula 06, usada ao contrario?
+   R => Porque a ordem de saida e oposta, entao nao e a mesma coisa lida de
+        tras pra frente, e outra estrutura mesmo. Na pilha so da pra mexer
+        no topo, entao pra chegar na primeira musica que entrou eu teria
+        que tirar todas as outras antes. A fila ja foi feita pra isso:
+        coloca no fim e tira do comeco, sem percorrer nada (O(1)).
+ 
+2. O que quebraria no modo repeticao se _tras nao fosse religado
+   corretamente ao desenfileirar o ultimo elemento?
+   R => No modo repeticao o ultimo no aponta de volta pro primeiro e vira
+        uma roda. Se o _tras nao for religado certo, esse elo se perde e
+        depois da ultima musica nao tem pra onde voltar: a fila para de
+        circular e vira uma fila normal. E se a fila esvazia e o _tras
+        continua apontando pra um no que ja saiu, a proxima musica
+        adicionada fica pendurada num no fantasma e a fila perde musica.
+=============================================================================
+ 
+    python main.py
 """
 
 from soundlab.acervo import Acervo
 from soundlab.faixa import Faixa
+from soundlab.fila import FilaCircular
 from soundlab.pilha import Pilha
 from soundlab.playlist import Playlist
 
@@ -26,6 +59,11 @@ OPCOES = """
  6  Acrescentar a playlist
                            12  Tocar faixa do acervo (historico)
                            13  Desfazer reproducao (historico)
+
+                           14  Adicionar faixa a fila "a seguir"
+                           15  Tocar proxima da fila
+                           16  Ligar/desligar modo repeticao
+                           17  Mostrar estado da fila
  0  Sair
 +------------------------------------------------+"""
 
@@ -133,10 +171,43 @@ def desfazer_reproducao(historico):
         print(f"  voltando a tocar: {historico.topo()}")
 
 
+def enfileirar_a_seguir(acervo, fila):
+    faixa = acervo.buscar(input("  titulo: ").strip())
+    if faixa is None:
+        print("  nao esta no acervo")
+        return
+    fila.enfileirar(faixa)
+    print(f"  '{faixa.titulo}' adicionada a fila 'a seguir'")
+
+
+def tocar_proxima_fila(fila):
+    faixa = fila.desenfileirar()
+    if faixa is None:
+        print("  Fila vazia")
+        return
+    faixa.tocar()
+    print(f"  tocando da fila: {faixa}")
+
+
+def alternar_repeticao(fila):
+    if fila.repetindo:
+        fila.desativar_repeticao()
+        print("  modo repeticao DESATIVADO")
+    else:
+        fila.ativar_repeticao()
+        print("  modo repeticao ATIVADO")
+
+
+def mostrar_estado_fila(fila):
+    estado_rep = "ligado" if fila.repetindo else "desligado"
+    print(f"  fila com {len(fila)} faixa(s) | repeticao: {estado_rep}")
+
+
 def main():
     acervo = carregar_acervo()
     playlist = Playlist("Favoritas")
     historico = Pilha()
+    fila = FilaCircular()
 
     while True:
         print(OPCOES)
@@ -158,6 +229,10 @@ def main():
             elif opcao == "11": anterior(playlist)
             elif opcao == "12": tocar_agora(acervo, historico)
             elif opcao == "13": desfazer_reproducao(historico)
+            elif opcao == "14": enfileirar_a_seguir(acervo, fila)
+            elif opcao == "15": tocar_proxima_fila(fila)
+            elif opcao == "16": alternar_repeticao(fila)
+            elif opcao == "17": mostrar_estado_fila(fila)
             else: print("  opcao invalida")
         except (ValueError, IndexError) as erro:
             print(f"  {erro}")
