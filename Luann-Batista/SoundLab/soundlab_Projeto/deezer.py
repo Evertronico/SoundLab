@@ -5,7 +5,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from soundlab.audius import FaixaOnline, StreamingErro, abrir_stream
+from soundlab_Projeto.audius import FaixaOnline, StreamingErro, abrir_stream
 
 
 class DeezerAPI:

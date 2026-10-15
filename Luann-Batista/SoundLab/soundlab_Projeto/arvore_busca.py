@@ -1,6 +1,6 @@
 """Árvore binária de busca ordenada pelo título da faixa."""
 
-from soundlab.arvore import ArvoreBinaria, NodoArvore
+from soundlab_Projeto.arvore import ArvoreBinaria, NodoArvore
 
 
 class ArvoreBusca(ArvoreBinaria):

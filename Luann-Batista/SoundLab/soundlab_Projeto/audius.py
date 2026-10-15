@@ -6,7 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
-from soundlab.faixa import Faixa
+from soundlab_Projeto.faixa import Faixa
 
 
 class StreamingErro(RuntimeError):

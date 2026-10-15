@@ -3,7 +3,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from soundlab.audius import AudiusAPI, AudiusErro, FaixaOnline
+from soundlab_Projeto.audius import AudiusAPI, AudiusErro, FaixaOnline
 
 
 class TestAudiusAPI(unittest.TestCase):

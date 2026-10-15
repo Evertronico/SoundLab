@@ -1,12 +1,12 @@
 import unittest
 
-from soundlab.arvore import ArvoreBinaria
-from soundlab.arvore_busca import ArvoreBusca
-from soundlab.busca import busca_binaria_contada, busca_linear_contada
-from soundlab.faixa import Faixa
-from soundlab.fila import FilaCircular, FilaExecucao
-from soundlab.grafo import GrafoRecomendacao
-from soundlab.ordenacao import (
+from soundlab_Projeto.arvore import ArvoreBinaria
+from soundlab_Projeto.arvore_busca import ArvoreBusca
+from soundlab_Projeto.busca import busca_binaria_contada, busca_linear_contada
+from soundlab_Projeto.faixa import Faixa
+from soundlab_Projeto.fila import FilaCircular, FilaExecucao
+from soundlab_Projeto.grafo import GrafoRecomendacao
+from soundlab_Projeto.ordenacao import (
     comparar_com_sorted,
     ordenar_por_insercao,
     ranking_por_duracao,

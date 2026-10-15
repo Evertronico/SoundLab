@@ -6,18 +6,18 @@ Execute a partir desta pasta com: python main.py
 import sys
 import unicodedata
 
-from soundlab.acervo import Acervo
-from soundlab.arvore import ArvoreBinaria
-from soundlab.arvore_busca import ArvoreBusca
-from soundlab.audius import AudiusAPI, AudiusErro, FaixaOnline, StreamingErro
-from soundlab.busca import busca_binaria_contada, busca_linear_contada
-from soundlab.deezer import DeezerAPI
-from soundlab.faixa import Faixa
-from soundlab.fila import FilaCircular, FilaExecucao
-from soundlab.grafo import GrafoRecomendacao
-from soundlab.ordenacao import ranking_por_duracao, ranking_por_execucoes
-from soundlab.pilha import Pilha
-from soundlab.playlist import Playlist
+from soundlab_Projeto.acervo import Acervo
+from soundlab_Projeto.arvore import ArvoreBinaria
+from soundlab_Projeto.arvore_busca import ArvoreBusca
+from soundlab_Projeto.audius import AudiusAPI, AudiusErro, FaixaOnline, StreamingErro
+from soundlab_Projeto.busca import busca_binaria_contada, busca_linear_contada
+from soundlab_Projeto.deezer import DeezerAPI
+from soundlab_Projeto.faixa import Faixa
+from soundlab_Projeto.fila import FilaCircular, FilaExecucao
+from soundlab_Projeto.grafo import GrafoRecomendacao
+from soundlab_Projeto.ordenacao import ranking_por_duracao, ranking_por_execucoes
+from soundlab_Projeto.pilha import Pilha
+from soundlab_Projeto.playlist import Playlist
 
 
 def _verde(texto):

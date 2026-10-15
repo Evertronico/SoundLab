@@ -1,6 +1,6 @@
 """Grafo não direcionado de coocorrências com recomendações por BFS."""
 
-from soundlab.fila import FilaExecucao
+from soundlab_Projeto.fila import FilaExecucao
 
 
 class GrafoRecomendacao:

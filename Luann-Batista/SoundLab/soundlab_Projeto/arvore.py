@@ -1,6 +1,6 @@
 """Árvore binária comum com inserção em largura e três percursos."""
 
-from soundlab.fila import FilaExecucao
+from soundlab_Projeto.fila import FilaExecucao
 
 
 class NodoArvore:

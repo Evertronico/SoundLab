@@ -9,13 +9,13 @@ ou, individualmente:
 
 import unittest
 
-from soundlab.faixa import Faixa
-from soundlab.fila import FilaExecucao, FilaCircular
-from soundlab.arvore import ArvoreBinaria
-from soundlab.arvore_busca import ArvoreBusca
-from soundlab.grafo import GrafoRecomendacao
-from soundlab.busca import busca_linear_contada, busca_binaria_contada
-from soundlab.ordenacao import (
+from soundlab_Projeto.faixa import Faixa
+from soundlab_Projeto.fila import FilaExecucao, FilaCircular
+from soundlab_Projeto.arvore import ArvoreBinaria
+from soundlab_Projeto.arvore_busca import ArvoreBusca
+from soundlab_Projeto.grafo import GrafoRecomendacao
+from soundlab_Projeto.busca import busca_linear_contada, busca_binaria_contada
+from soundlab_Projeto.ordenacao import (
     ordenar_por_insercao,
     ranking_por_execucoes,
     ranking_por_duracao,

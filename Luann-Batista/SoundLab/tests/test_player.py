@@ -4,12 +4,12 @@ from io import StringIO
 from unittest.mock import Mock, patch
 
 from main import carregar_acervo, main, obter_faixa_reproduzivel, tocar_proxima
-from soundlab.audius import AudiusErro, FaixaOnline
-from soundlab.deezer import DeezerAPI
-from soundlab.faixa import Faixa
-from soundlab.fila import FilaExecucao
-from soundlab.grafo import GrafoRecomendacao
-from soundlab.pilha import Pilha
+from soundlab_Projeto.audius import AudiusErro, FaixaOnline
+from soundlab_Projeto.deezer import DeezerAPI
+from soundlab_Projeto.faixa import Faixa
+from soundlab_Projeto.fila import FilaExecucao
+from soundlab_Projeto.grafo import GrafoRecomendacao
+from soundlab_Projeto.pilha import Pilha
 
 
 class TestPlayer(unittest.TestCase):

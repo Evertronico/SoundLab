@@ -3,8 +3,8 @@ import json
 import unittest
 from unittest.mock import patch
 
-from soundlab.audius import FaixaOnline, StreamingErro
-from soundlab.deezer import DeezerAPI
+from soundlab_Projeto.audius import FaixaOnline, StreamingErro
+from soundlab_Projeto.deezer import DeezerAPI
 
 
 class TestDeezerAPI(unittest.TestCase):
