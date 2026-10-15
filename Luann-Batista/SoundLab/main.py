@@ -1,14 +1,17 @@
-"""
-SoundLab — Projeto Individual: integra as estruturas das Semanas 1 a 6
-ao menu de texto da base comum (Aulas 01-06).
+"""SoundLab: player de terminal com buscas no Audius/Deezer e fila musical.
 
-    python main.py
+Execute a partir desta pasta com: python main.py
 """
+
+import sys
+import unicodedata
 
 from soundlab.acervo import Acervo
 from soundlab.arvore import ArvoreBinaria
 from soundlab.arvore_busca import ArvoreBusca
+from soundlab.audius import AudiusAPI, AudiusErro, FaixaOnline, StreamingErro
 from soundlab.busca import busca_binaria_contada, busca_linear_contada
+from soundlab.deezer import DeezerAPI
 from soundlab.faixa import Faixa
 from soundlab.fila import FilaCircular, FilaExecucao
 from soundlab.grafo import GrafoRecomendacao
@@ -16,23 +19,11 @@ from soundlab.ordenacao import ranking_por_duracao, ranking_por_execucoes
 from soundlab.pilha import Pilha
 from soundlab.playlist import Playlist
 
-OPCOES = """
-+------------------- SoundLab -------------------+
- 1  Listar acervo          14  Ver fila de execucao
- 2  Cadastrar faixa        15  Adicionar faixa na fila
- 3  Buscar por titulo      16  Reproduzir proxima da fila
- 4  Remover do acervo      17  Alternar repeticao
- 5  Ver playlist           18  Percursos da arvore
- 6  Acrescentar a playlist 19  Buscar na ABB
- 7  Inserir na playlist    20  Ver recomendacoes
- 8  Tirar da playlist      21  Comparar buscas
- 9  Comecar reproducao     22  Ver ranking musical
-10 Proxima faixa           0  Sair
-11 Faixa anterior
-12 Tocar faixa do acervo
-13 Desfazer reproducao
-+------------------------------------------------+
-"""
+
+def _verde(texto):
+    if sys.stdout.isatty():
+        return f"\033[92m{texto}\033[0m"
+    return texto
 
 
 def carregar_acervo():
@@ -41,236 +32,408 @@ def carregar_acervo():
     acervo.adicionar(Faixa("Construcao", "Chico Buarque", 382))
     acervo.adicionar(Faixa("Ponta de Areia", "Milton Nascimento", 194))
     acervo.adicionar(Faixa("Baiao", "Luiz Gonzaga", 168))
+    acervo.adicionar(Faixa("Asa Branca", "Luiz Gonzaga", 180))
+    acervo.adicionar(Faixa("Garota de Ipanema", "Tom Jobim", 210))
+    acervo.adicionar(Faixa("Samba de Janeiro", "Tom Jobim", 200))
+    acervo.adicionar(Faixa("Chega de Saudade", "Joao Gilberto", 190))
+    acervo.adicionar(Faixa("O Bêbado e a Equilibrista", "Joao Bosco", 220))
+
     return acervo
 
 
-def listar(acervo):
-    if len(acervo) == 0:
-        print("  acervo vazio")
+def mostrar_menu(tocando, fila, repeticao):
+    faixa_atual = f"{tocando.titulo} - {tocando.artista}" if tocando else "Nada tocando"
+    modo = "ligada" if repeticao else "desligada"
+    print()
+    print(_verde("  SOUNDLAB - PLAYER"))
+    print("  " + "-" * 44)
+    print(f"  Tocando: {faixa_atual}")
+    print(f"  Fila: {len(fila)} faixa(s) | Repeticao: {modo}")
+    print("  " + "-" * 44)
+    print("  REPRODUCAO")
+    print("  1  Tocar proxima faixa da fila")
+    print("  2  Ver fila")
+    print("  3  Adicionar faixa local a fila")
+    print("  4  Buscar no Audius e tocar")
+    print("  5  Buscar no Audius e adicionar a fila")
+    print("  6  Ligar/desligar repeticao")
+    print()
+    print("  BIBLIOTECA")
+    print("  7  Listar acervo")
+    print("  8  Buscar no acervo")
+    print("  9  Cadastrar faixa")
+    print("  10 Remover faixa")
+    print()
+    print("  PLAYLIST")
+    print("  11  Ver playlist")
+    print("  12  Adicionar faixa do acervo")
+    print("  13  Adicionar playlist inteira a fila")
+    print()
+    print("  FERRAMENTAS DO PROJETO")
+    print("  14  Percursos da arvore")
+    print("  15  Buscar na arvore de busca")
+    print("  16  Recomendacoes do historico")
+    print("  17  Comparar buscas")
+    print("  18  Rankings")
+    print("  19  Desfazer historico")
+    print("  0   Sair")
+    print()
+
+
+def listar_acervo(acervo):
+    if not len(acervo):
+        print("  O acervo local esta vazio.")
         return
-    for posicao, faixa in enumerate(acervo):
-        print(f"  [{posicao}] {faixa}")
+    for numero, faixa in enumerate(acervo, start=1):
+        print(f"  {numero:>2}. {faixa}")
 
 
-def cadastrar(acervo):
-    titulo = input("  titulo...: ").strip()
-    artista = input("  artista..: ").strip()
-    acervo.adicionar(Faixa(titulo, artista, int(input("  duracao (s): "))))
-    print(f"  cadastrada. o acervo tem {len(acervo)} faixas.")
+def cadastrar_faixa(acervo):
+    titulo = input("  Titulo: ").strip()
+    artista = input("  Artista: ").strip()
+    duracao = int(input("  Duracao em segundos: ").strip())
+    if not titulo or not artista or duracao <= 0:
+        raise ValueError("Titulo, artista e duracao positiva sao obrigatorios.")
+    acervo.adicionar(Faixa(titulo, artista, duracao))
+    print(f"  Faixa cadastrada. Acervo: {len(acervo)} faixa(s).")
 
 
-def buscar(acervo):
-    faixa = acervo.buscar(input("  titulo: ").strip())
-    print(f"  {faixa}" if faixa else "  nao encontrada")
+def selecionar_faixa_online(faixas):
+    if not faixas:
+        print("  Nenhuma faixa reproduzivel foi encontrada.")
+        return None
+    print()
+    for numero, faixa in enumerate(faixas, start=1):
+        duracao = "prévia de 30s" if faixa.is_previa else faixa.duracao_formatada()
+        print(f"  {numero:>2}. {faixa.titulo} - {faixa.artista} "
+              f"({duracao})")
+    escolha = input("  Escolha o numero (Enter cancela): ").strip()
+    if not escolha:
+        return None
+    numero = int(escolha)
+    if not 1 <= numero <= len(faixas):
+        raise ValueError("Numero de faixa fora dos resultados.")
+    return faixas[numero - 1]
 
 
-def remover(acervo):
-    faixa = acervo.remover(input("  titulo: ").strip())
-    print(f"  removida: {faixa}" if faixa else "  nao encontrada")
-
-
-def ver_playlist(playlist):
-    print(f"  playlist '{playlist.nome}' ({len(playlist)} faixas)")
-    for posicao, faixa in enumerate(playlist):
-        print(f"    {posicao}. {faixa}")
-
-
-def acrescentar(acervo, playlist):
-    faixa = acervo.buscar(input("  titulo: ").strip())
+def buscar_online(api, tocando, historico, grafo, fila=None):
+    consulta = input("  Pesquisar titulo ou artista no Audius: ").strip()
+    resultados = api.buscar(consulta)
+    faixa = selecionar_faixa_online(resultados)
     if faixa is None:
-        print("  nao esta no acervo")
-        return
-    playlist.adicionar(faixa)
-    print(f"  '{faixa.titulo}' entrou no fim da playlist")
-
-
-def inserir(acervo, playlist):
-    faixa = acervo.buscar(input("  titulo: ").strip())
-    if faixa is None:
-        print("  nao esta no acervo")
-        return
-    posicao = int(input(f"  posicao (0 a {len(playlist)}): "))
-    playlist.inserir_em(posicao, faixa)
-    print(f"  '{faixa.titulo}' inserida na posicao {posicao}")
-
-
-def tirar(playlist):
-    posicao = int(input(f"  posicao (0 a {len(playlist) - 1}): "))
-    print(f"  saiu: {playlist.remover_em(posicao)}")
-
-
-def comecar(playlist):
-    print(f"  tocando: {playlist.comecar_reproducao()}")
-
-
-def proxima(playlist):
-    print(f"  tocando: {playlist.proxima()}")
-
-
-def anterior(playlist):
-    print(f"  tocando: {playlist.anterior()}")
-
-
-def tocar_agora(acervo, historico):
-    faixa = acervo.buscar(input("  titulo: ").strip())
-    if faixa is None:
-        print("  nao esta no acervo")
-        return
+        return tocando
+    if fila is not None:
+        fila.enfileirar(faixa)
+        print(f"  Adicionada a fila: {faixa.titulo} - {faixa.artista}")
+        return tocando
+    api.reproduzir(faixa)
+    faixa.tocar()
+    if not historico.vazia():
+        grafo.registrar_coocorrencia(historico.topo().titulo, faixa.titulo)
     historico.empilhar(faixa)
-    print(f"  tocando agora: {faixa}")
+    print(f"  Streaming aberto no navegador: {faixa.titulo} - {faixa.artista}")
+    print("  Os controles de tocar/pausar ficam no player do navegador.")
+    return faixa
 
 
-def desfazer_reproducao(historico):
-    if historico.vazia():
-        print("  nada no historico")
+def adicionar_local_a_fila(fila, acervo):
+    titulo = input("  Titulo da faixa no acervo: ").strip()
+    faixa = acervo.buscar(titulo)
+    if faixa is None:
+        print("  Faixa nao encontrada no acervo.")
         return
-    atual = historico.desempilhar()
-    print(f"  saindo de: {atual}")
-    if historico.vazia():
-        print("  historico vazio - nada tocando")
-    else:
-        print(f"  voltando a tocar: {historico.topo()}")
+    fila.enfileirar(faixa)
+    print(f"  Adicionada a fila: {faixa.titulo}")
 
 
 def mostrar_fila(fila):
     if fila.vazia():
-        print("  fila vazia")
+        print("  Fila vazia.")
         return
-    for posicao, faixa in enumerate(fila):
-        print(f"  [{posicao}] {faixa}")
+    for numero, faixa in enumerate(fila, start=1):
+        print(f"  {numero:>2}. {faixa.titulo} - {faixa.artista}")
 
 
-def adicionar_fila(fila, acervo):
-    faixa = acervo.buscar(input("  titulo: ").strip())
-    if faixa is None:
-        print("  nao esta no acervo")
-        return
-    fila.enfileirar(faixa)
-    print(f"  '{faixa.titulo}' entrou na fila")
+def obter_faixa_reproduzivel(api, faixa, deezer):
+    if isinstance(faixa, FaixaOnline):
+        return faixa
+
+    consulta = f"{faixa.titulo} {faixa.artista}"
+    erros = []
+    try:
+        resultados = api.buscar(consulta)
+    except StreamingErro as erro:
+        resultados = []
+        erros.append(f"Audius: {erro}")
+    exatas = [
+        item for item in resultados
+        if _normalizar_texto(item.titulo) == _normalizar_texto(faixa.titulo)
+        and _normalizar_artista(item.artista) == _normalizar_artista(faixa.artista)
+    ]
+    if exatas:
+        return exatas[0]
+
+    try:
+        resultados_deezer = deezer.buscar(consulta)
+    except StreamingErro as erro:
+        resultados_deezer = []
+        erros.append(f"Deezer: {erro}")
+    exatas_deezer = [
+        item for item in resultados_deezer
+        if _normalizar_texto(item.titulo) == _normalizar_texto(faixa.titulo)
+        and _normalizar_artista(item.artista) == _normalizar_artista(faixa.artista)
+    ]
+    if exatas_deezer:
+        if erros:
+            print(f"  Busca alternativa: {'; '.join(erros)}")
+        return exatas_deezer[0]
+
+    try:
+        resultados_por_titulo = deezer.buscar(faixa.titulo)
+    except StreamingErro as erro:
+        resultados_por_titulo = []
+        erros.append(f"Deezer: {erro}")
+    titulos_exatos = [
+        item for item in resultados_por_titulo
+        if _normalizar_texto(item.titulo) == _normalizar_texto(faixa.titulo)
+    ]
+    if titulos_exatos:
+        print(
+            f"  Encontrei o titulo '{faixa.titulo}', mas o artista online "
+            "e diferente. Escolha se deseja ouvir essa versao:"
+        )
+        return selecionar_faixa_online(titulos_exatos)
+
+    if not resultados and not resultados_deezer:
+        if erros:
+            raise AudiusErro("; ".join(erros))
+        print(f"  Nenhuma versao reproduzivel encontrada para '{faixa.titulo}'.")
+        return None
+
+    print(
+        f"  Nao encontrei correspondencia exata para '{faixa.titulo}' "
+        f"de '{faixa.artista}'."
+    )
+    return selecionar_faixa_online(resultados + resultados_deezer)
 
 
-def reproduzir_fila(fila, grafo, historico):
-    """Semana 1 + 4: toca a próxima faixa da fila (desenfileirando).
+def _normalizar_texto(texto):
+    sem_acentos = unicodedata.normalize("NFKD", texto)
+    return "".join(
+        caractere for caractere in sem_acentos
+        if not unicodedata.combining(caractere)
+    ).casefold().strip()
 
-    A faixa tocada entra no histórico (pilha) e, se havia outra
-    tocando antes, a coocorrência das duas é registrada no grafo —
-    as arestas nascem da reprodução REAL, não de dados fixos.
-    """
+
+def _normalizar_artista(texto):
+    nome = _normalizar_texto(texto)
+    if nome in {"tom jobim", "antonio carlos jobim"}:
+        return "antonio carlos jobim"
+    return nome
+
+
+def tocar_proxima(fila, api, deezer, historico, grafo, tocando):
     if fila.vazia():
-        print("  fila vazia")
-        return
-    faixa = fila.desenfileirar()
+        print("  Fila vazia.")
+        return tocando
+    proxima = fila.primeiro()
+    online = obter_faixa_reproduzivel(api, proxima, deezer)
+    if online is None:
+        return tocando
+
+    if online.provedor == "Deezer":
+        deezer.reproduzir(online)
+    else:
+        api.reproduzir(online)
+    faixa_tocada = fila.desenfileirar()
+    if faixa_tocada is not online:
+        faixa_tocada.tocar()
+    online.tocar()
     if not historico.vazia():
-        grafo.registrar_coocorrencia(historico.topo().titulo, faixa.titulo)
-    historico.empilhar(faixa)
-    faixa.tocar()
-    print(f"  tocando: {faixa}  ({len(fila)} restantes na fila)")
+        grafo.registrar_coocorrencia(historico.topo().titulo, online.titulo)
+    historico.empilhar(online)
+    if online.is_previa:
+        print(
+            f"  Previa de 30 segundos do Deezer aberta: "
+            f"{online.titulo} - {online.artista}"
+        )
+    else:
+        print(f"  Streaming aberto no navegador: {online.titulo} - {online.artista}")
+    print("  Os controles de tocar/pausar ficam no player do navegador.")
+    return online
 
 
-def alternar_repeticao(fila_execucao, repeticao_ativa):
-    if fila_execucao is None:
-        fila_execucao = FilaExecucao()
-    itens = list(fila_execucao)
-    nova_fila = FilaCircular() if not repeticao_ativa else FilaExecucao()
-    for item in itens:
-        nova_fila.enfileirar(item)
+def alternar_repeticao(fila, repeticao_ativa):
+    itens = list(fila)
+    nova_fila = FilaExecucao() if repeticao_ativa else FilaCircular()
+    for faixa in itens:
+        nova_fila.enfileirar(faixa)
     return nova_fila, not repeticao_ativa
 
 
-def mostrar_arvore(arvore):
-    print("  pre-ordem:", [faixa.titulo for faixa in arvore.pre_ordem()])
-    print("  em-ordem:", [faixa.titulo for faixa in arvore.em_ordem()])
-    print("  pos-ordem:", [faixa.titulo for faixa in arvore.pos_ordem()])
+def ver_playlist(playlist):
+    if not len(playlist):
+        print(f"  A playlist '{playlist.nome}' esta vazia.")
+        return
+    for numero, faixa in enumerate(playlist, start=1):
+        print(f"  {numero:>2}. {faixa}")
 
 
-def buscar_abb(abb):
-    titulo = input("  titulo: ").strip()
+def adicionar_a_playlist(acervo, playlist):
+    faixa = acervo.buscar(input("  Titulo da faixa no acervo: ").strip())
+    if faixa is None:
+        print("  Faixa nao encontrada no acervo.")
+        return
+    playlist.adicionar(faixa)
+    print(f"  Adicionada a playlist '{playlist.nome}': {faixa.titulo}")
+
+
+def enfileirar_playlist(playlist, fila):
+    if not len(playlist):
+        print("  A playlist esta vazia.")
+        return
+    for faixa in playlist:
+        fila.enfileirar(faixa)
+    print(f"  {len(playlist)} faixa(s) adicionadas a fila.")
+
+
+def mostrar_percursos(acervo):
+    arvore = ArvoreBinaria()
+    for faixa in acervo:
+        arvore.inserir(faixa)
+    print("  Pre-ordem :", [faixa.titulo for faixa in arvore.pre_ordem()])
+    print("  Em-ordem  :", [faixa.titulo for faixa in arvore.em_ordem()])
+    print("  Pos-ordem :", [faixa.titulo for faixa in arvore.pos_ordem()])
+
+
+def buscar_na_abb(acervo):
+    abb = ArvoreBusca()
+    for faixa in acervo:
+        abb.inserir(faixa)
+    titulo = input("  Titulo para buscar: ").strip()
     faixa = abb.buscar(titulo)
-    print(f"  {faixa}" if faixa else "  nao encontrada")
+    print(f"  Encontrada: {faixa}" if faixa else "  Faixa nao encontrada.")
+    print("  Ordem alfabetica:", [item.titulo for item in abb.em_ordem()])
 
 
 def mostrar_recomendacoes(grafo):
-    titulo = input("  titulo: ").strip()
-    recomendacoes = grafo.recomendar(titulo, 2)
-    if not recomendacoes:
-        print("  nenhuma recomendacao")
-        return
-    print("  recomendacoes:", ", ".join(recomendacoes))
+    titulo = input("  Titulo para recomendar: ").strip()
+    recomendacoes = grafo.recomendar(titulo, distancia_maxima=2)
+    if recomendacoes:
+        print("  Recomendacoes:", ", ".join(recomendacoes))
+    else:
+        print("  Ainda nao ha recomendacoes; toque faixas da fila para criar historico.")
 
 
-def comparar_buscas(acervo, arvore_busca):
-    """Semana 5: compara busca linear x binária sobre o acervo real.
+def desfazer_reproducao(historico):
+    if historico.vazia():
+        print("  O historico esta vazio.")
+        return None
+    removida = historico.desempilhar()
+    anterior = historico.topo() if not historico.vazia() else None
+    print(f"  Removida do historico: {removida.titulo}")
+    if anterior is None:
+        print("  Nao ha outra faixa no historico.")
+    else:
+        print(f"  Faixa anterior no historico: {anterior.titulo}")
+    print("  Essa opcao nao interrompe o audio ja aberto no navegador.")
+    return anterior
 
-    A lista para a busca binária vem do em_ordem() da ABB (Semana 3)
-    — já ordenada por título, sem reordenar manualmente.
-    """
-    lista = arvore_busca.em_ordem()   # ordenada pela ABB
-    titulo = input("  titulo a buscar: ").strip()
-    faixa_linear, comp_linear = busca_linear_contada(list(acervo), titulo)
-    faixa_binaria, comp_binaria = busca_binaria_contada(lista, titulo)
-    print("  busca linear:", faixa_linear, f"({comp_linear} comparacoes)")
-    print("  busca binaria:", faixa_binaria, f"({comp_binaria} comparacoes)")
+
+def comparar_buscas(acervo):
+    abb = ArvoreBusca()
+    for faixa in acervo:
+        abb.inserir(faixa)
+    titulo = input("  Titulo para buscar: ").strip()
+    linear, comparacoes_lineares = busca_linear_contada(list(acervo), titulo)
+    binaria, comparacoes_binarias = busca_binaria_contada(abb.em_ordem(), titulo)
+    print(f"  Linear: {linear or 'nao encontrada'} "
+          f"({comparacoes_lineares} comparacoes, O(n)).")
+    print(f"  Binaria: {binaria or 'nao encontrada'} "
+          f"({comparacoes_binarias} comparacoes, O(log n) em lista ordenada).")
+    print("  Comparacoes contam passos; nao sao medida de tempo de execucao.")
 
 
-def mostrar_ranking(acervo):
+def mostrar_rankings(acervo):
     faixas = list(acervo)
-    ranking_exec = ranking_por_execucoes(faixas)
-    ranking_dur = ranking_por_duracao(faixas)
-    print("  ranking por execucoes:")
-    for indice, faixa in enumerate(ranking_exec, start=1):
-        print(f"    {indice}. {faixa.titulo} ({faixa.num_execucoes} execucoes)")
-    print("  ranking por duracao:")
-    for indice, faixa in enumerate(ranking_dur, start=1):
-        print(f"    {indice}. {faixa.titulo} ({faixa.duracao_formatada()})")
+    print("  Mais tocadas (decrescente; empates mantem ordem do acervo):")
+    for numero, faixa in enumerate(ranking_por_execucoes(faixas), start=1):
+        print(f"  {numero:>2}. {faixa.titulo} - {faixa.num_execucoes} execucao(oes)")
+    print("  Mais longas (decrescente):")
+    for numero, faixa in enumerate(ranking_por_duracao(faixas), start=1):
+        print(f"  {numero:>2}. {faixa.titulo} - {faixa.duracao_formatada()}")
 
 
 def main():
     acervo = carregar_acervo()
     playlist = Playlist("Favoritas")
+    fila = FilaExecucao()
+    for faixa in acervo:
+        fila.enfileirar(faixa)
     historico = Pilha()
-    fila_execucao = FilaExecucao()
-    repeticao_ativa = False
-    arvore = ArvoreBinaria()
-    for faixa in acervo:
-        arvore.inserir(faixa)
-    arvore_busca = ArvoreBusca()
-    for faixa in acervo:
-        arvore_busca.inserir(faixa)
-    # o grafo começa vazio e é populado pela reprodução real (opção 16)
     grafo = GrafoRecomendacao()
+    api = AudiusAPI()
+    deezer = DeezerAPI()
+    tocando = None
+    repeticao_ativa = False
 
     while True:
-        print(OPCOES)
-        opcao = input(" opcao: ").strip()
+        mostrar_menu(tocando, fila, repeticao_ativa)
+        opcao = input("  Opcao: ").strip()
         try:
             if opcao == "0":
-                print(" ate a proxima.")
-                break
-            elif opcao == "1": listar(acervo)
-            elif opcao == "2": cadastrar(acervo)
-            elif opcao == "3": buscar(acervo)
-            elif opcao == "4": remover(acervo)
-            elif opcao == "5": ver_playlist(playlist)
-            elif opcao == "6": acrescentar(acervo, playlist)
-            elif opcao == "7": inserir(acervo, playlist)
-            elif opcao == "8": tirar(playlist)
-            elif opcao == "9": comecar(playlist)
-            elif opcao == "10": proxima(playlist)
-            elif opcao == "11": anterior(playlist)
-            elif opcao == "12": tocar_agora(acervo, historico)
-            elif opcao == "13": desfazer_reproducao(historico)
-            elif opcao == "14": mostrar_fila(fila_execucao)
-            elif opcao == "15": adicionar_fila(fila_execucao, acervo)
-            elif opcao == "16": reproduzir_fila(fila_execucao, grafo, historico)
-            elif opcao == "17": fila_execucao, repeticao_ativa = alternar_repeticao(fila_execucao, repeticao_ativa); print(f"  repeticao {'ativa' if repeticao_ativa else 'inativa'}")
-            elif opcao == "18": mostrar_arvore(arvore)
-            elif opcao == "19": buscar_abb(arvore_busca)
-            elif opcao == "20": mostrar_recomendacoes(grafo)
-            elif opcao == "21": comparar_buscas(acervo, arvore_busca)
-            elif opcao == "22": mostrar_ranking(acervo)
-            else: print("  opcao invalida")
+                print("  Ate a proxima.")
+                return
+            if opcao == "1":
+                tocando = tocar_proxima(
+                    fila, api, deezer, historico, grafo, tocando
+                )
+            elif opcao == "2":
+                mostrar_fila(fila)
+            elif opcao == "3":
+                adicionar_local_a_fila(fila, acervo)
+            elif opcao == "4":
+                tocando = buscar_online(api, tocando, historico, grafo)
+            elif opcao == "5":
+                buscar_online(api, tocando, historico, grafo, fila)
+            elif opcao == "6":
+                fila, repeticao_ativa = alternar_repeticao(fila, repeticao_ativa)
+                print(f"  Repeticao {'ativada' if repeticao_ativa else 'desativada'}.")
+            elif opcao == "7":
+                listar_acervo(acervo)
+            elif opcao == "8":
+                faixa = acervo.buscar(input("  Titulo: ").strip())
+                print(f"  {faixa}" if faixa else "  Faixa nao encontrada.")
+            elif opcao == "9":
+                cadastrar_faixa(acervo)
+            elif opcao == "10":
+                faixa = acervo.remover(input("  Titulo: ").strip())
+                print(f"  Removida: {faixa}" if faixa else "  Faixa nao encontrada.")
+            elif opcao == "11":
+                ver_playlist(playlist)
+            elif opcao == "12":
+                adicionar_a_playlist(acervo, playlist)
+            elif opcao == "13":
+                enfileirar_playlist(playlist, fila)
+            elif opcao == "14":
+                mostrar_percursos(acervo)
+            elif opcao == "15":
+                buscar_na_abb(acervo)
+            elif opcao == "16":
+                mostrar_recomendacoes(grafo)
+            elif opcao == "17":
+                comparar_buscas(acervo)
+            elif opcao == "18":
+                mostrar_rankings(acervo)
+            elif opcao == "19":
+                tocando = desfazer_reproducao(historico)
+            else:
+                print("  Opcao invalida.")
+        except StreamingErro as erro:
+            print(f"  Erro ao buscar ou reproduzir: {erro}")
         except (ValueError, IndexError) as erro:
-            print(f"  {erro}")
+            print(f"  Entrada invalida: {erro}")
+        input("\n  Pressione Enter para voltar ao menu...")
 
 
 if __name__ == "__main__":
