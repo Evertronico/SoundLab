@@ -1,30 +1,26 @@
 """
-SoundLab — versão 6 (Aula 06).
-
-O SoundLab ganhou histórico de reprodução. É uma estrutura nova, não uma
-extensão da Playlist: o cursor `anterior`/`proxima` da Aula 05 anda pela
-ORDEM da playlist; o histórico guarda a ORDEM REAL em que as faixas foram
-tocadas, mesmo quando uma faixa é tocada direto do acervo, fora de
-qualquer posição da playlist. Desfazer reprodução é desempilhar.
-
-    python3 main.py
+SoundLab —Semana 1 (Fila de Execução e Modo Repetição).
 """
 
 from soundlab.acervo import Acervo
 from soundlab.faixa import Faixa
 from soundlab.pilha import Pilha
 from soundlab.playlist import Playlist
+from soundlab.fila import FilaExecucao, FilaCircular
 
 OPCOES = """
 +------------------- SoundLab -------------------+
- 1  Listar acervo           7  Inserir na playlist (posicao)
- 2  Cadastrar faixa         8  Tirar da playlist (posicao)
- 3  Buscar por titulo       9  Comecar reproducao (playlist)
- 4  Remover do acervo      10  Proxima faixa da playlist (>>)
- 5  Ver playlist           11  Faixa anterior da playlist (<<)
+ 1  Listar acervo          7  Inserir na playlist (posicao)
+ 2  Cadastrar faixa        8  Tirar da playlist (posicao)
+ 3   Buscar por titulo       9  Comecar reproducao (playlist)
+ 4  Remover do acervo     10  Proxima faixa da playlist (>>)
+ 5  Ver playlist          11  Faixa anterior da playlist (<<)
  6  Acrescentar a playlist
-                           12  Tocar faixa do acervo (historico)
-                           13  Desfazer reproducao (historico)
+                          12  Tocar faixa do acervo (historico)
+                          13  Desfazer reproducao (historico)
+                          14  Enfileirar faixa (A seguir)
+                          15  Tocar proxima da fila
+                          16  Alternar modo repeticao (Loop)
  0  Sair
 +------------------------------------------------+"""
 
@@ -105,11 +101,6 @@ def anterior(playlist):
 
 
 def tocar_agora(acervo, historico):
-    """Toca uma faixa direto do acervo, fora da ordem da playlist.
-
-    Cada chamada empilha uma faixa nova: o topo do historico passa a
-    ser "o que esta tocando agora".
-    """
     faixa = acervo.buscar(input("  titulo: ").strip())
     if faixa is None:
         print("  nao esta no acervo")
@@ -119,8 +110,6 @@ def tocar_agora(acervo, historico):
 
 
 def desfazer_reproducao(historico):
-    """Desempilha a faixa atual e revela a que tocava antes dela —
-    exatamente o oposto de tocar_agora."""
     if historico.vazia():
         print("  nada no historico")
         return
@@ -132,10 +121,41 @@ def desfazer_reproducao(historico):
         print(f"  voltando a tocar: {historico.topo()}")
 
 
+def enfileirar_faixa(acervo, fila_atual):
+    faixa = acervo.buscar(input("  titulo: ").strip())
+    if faixa is None:
+        print("  nao esta no acervo")
+        return
+    fila_atual.enfileirar(faixa)
+    print(f"  '{faixa.titulo}' entrou na fila 'a seguir'")
+
+
+def tocar_proxima_fila(fila_atual):
+    if fila_atual.vazia():
+        print("  fila de execucao vazia")
+        return
+    faixa = fila_atual.desenfileirar()
+    print(f"  tocando da fila: {faixa}")
+
+
+def alternar_modo_repeticao(fila_atual, acervo):
+    if isinstance(fila_atual, FilaCircular):
+        nova_fila = FilaExecucao()
+        while not fila_atual.vazia():
+            break
+        print("  modo repeticao DESLIGADO (Fila normal)")
+        return nova_fila
+    else:
+        nova_fila = FilaCircular()
+        print("  modo repeticao LIGADO (Fila circular)")
+        return nova_fila
+
+
 def main():
     acervo = carregar_acervo()
     playlist = Playlist("Favoritas")
     historico = Pilha()
+    fila_execucao = FilaExecucao()
 
     while True:
         print(OPCOES)
@@ -157,6 +177,10 @@ def main():
             elif opcao == "11": anterior(playlist)
             elif opcao == "12": tocar_agora(acervo, historico)
             elif opcao == "13": desfazer_reproducao(historico)
+            elif opcao == "14": enfileirar_faixa(acervo, fila_execucao)
+            elif opcao == "15": tocar_proxima_fila(fila_execucao)
+            elif opcao == "16": 
+                fila_execucao = alternar_modo_repeticao(fila_execucao, acervo)
             else: print("  opcao invalida")
         except (ValueError, IndexError) as erro:
             print(f"  {erro}")
